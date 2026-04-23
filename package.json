@@ -1,9 +1,9 @@
 {
-  "name": "copilot-conductor",
-  "displayName": "Copilot Conductor",
-  "description": "Prompt validation, model routing, and cost estimation for GitHub Copilot.",
-  "version": "0.3.0",
-  "publisher": "copilot-conductor",
+  "name": "token-proctor",
+  "displayName": "Token Proctor",
+  "description": "Prompt validation, model routing, and token/turn cost projection for GitHub Copilot and other token-priced LLM plans.",
+  "version": "0.4.0",
+  "publisher": "token-proctor",
   "license": "MIT",
   "engines": {
     "vscode": "^1.95.0",
@@ -19,113 +19,97 @@
     "model routing",
     "prompt validation",
     "cost",
-    "llm"
+    "token",
+    "llm",
+    "agent"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "bin": {
-    "copilot-conductor-mcp": "./out/mcp-server.js"
+    "token-proctor-mcp": "./out/mcp-server.js"
   },
   "contributes": {
     "chatParticipants": [
       {
-        "id": "copilot-conductor.conductor",
-        "name": "conductor",
-        "fullName": "Copilot Conductor",
-        "description": "Validate prompt, route to best model, show cost.",
+        "id": "token-proctor.proctor",
+        "name": "proctor",
+        "fullName": "Token Proctor",
+        "description": "Validate prompt, route to best model, project turns and token cost.",
         "isSticky": true,
         "commands": [
-          {
-            "name": "route",
-            "description": "Pick the best model for this prompt"
-          },
-          {
-            "name": "validate",
-            "description": "Score prompt completeness; ask follow-ups if weak"
-          },
-          {
-            "name": "cost",
-            "description": "Estimate tokens and $ for this prompt"
-          },
-          {
-            "name": "explain",
-            "description": "Explain the routing/validation decision"
-          },
-          {
-            "name": "confirm",
-            "description": "Confirm the previous recommendation and forward to the chosen model"
-          },
-          {
-            "name": "cancel",
-            "description": "Cancel a pending confirmation — no model will be called"
-          }
+          { "name": "route",    "description": "Pick the best model for this prompt" },
+          { "name": "validate", "description": "Score prompt completeness; ask follow-ups if weak" },
+          { "name": "cost",     "description": "Estimate tokens, turns and $ for this prompt" },
+          { "name": "explain",  "description": "Explain the routing/validation decision" },
+          { "name": "confirm",  "description": "Confirm the previous recommendation and forward to the chosen model" },
+          { "name": "cancel",   "description": "Cancel a pending confirmation — no model will be called" }
         ]
       }
     ],
     "commands": [
       {
-        "command": "copilot-conductor.diagnoseModelCommands",
-        "title": "Copilot Conductor: Diagnose Model Commands",
-        "category": "Copilot Conductor"
+        "command": "token-proctor.diagnoseModelCommands",
+        "title": "Token Proctor: Diagnose Model Commands",
+        "category": "Token Proctor"
       }
     ],
     "configuration": {
-      "title": "Copilot Conductor",
+      "title": "Token Proctor",
       "properties": {
-        "copilotConductor.completenessThreshold": {
+        "tokenProctor.completenessThreshold": {
           "type": "number",
           "default": 60,
           "minimum": 0,
           "maximum": 100,
-          "description": "Below this score, Conductor asks follow-up questions instead of invoking a model."
+          "description": "Below this score, Token Proctor asks follow-up questions instead of invoking a model."
         },
-        "copilotConductor.autoForward": {
+        "tokenProctor.autoForward": {
           "type": "boolean",
           "default": true,
           "description": "After routing, forward the prompt to the chosen model and stream the answer."
         },
-        "copilotConductor.requireConfirmation": {
+        "tokenProctor.requireConfirmation": {
           "type": "boolean",
           "default": true,
-          "description": "Show the recommended model and wait for user confirmation (Confirm & forward button or /confirm) before calling the model."
+          "description": "Show the recommended model and wait for user confirmation (Accept & hand off button or /confirm) before calling the model."
         },
-        "copilotConductor.handoffToCopilot": {
+        "tokenProctor.handoffToCopilot": {
           "type": "boolean",
           "default": true,
           "description": "When confirmed, hand the prompt off to the GitHub Copilot agent (which has file-edit tools) instead of streaming a plain text answer from vscode.lm. User should pick the recommended model in the chat model picker first."
         },
-        "copilotConductor.handoffParticipant": {
+        "tokenProctor.handoffParticipant": {
           "type": "string",
           "default": "github.copilot",
           "description": "Chat participant id to hand off to when handoffToCopilot is enabled. Defaults to the GitHub Copilot agent."
         },
-        "copilotConductor.preferCheap": {
+        "tokenProctor.preferCheap": {
           "type": "boolean",
           "default": false,
           "description": "Bias routing toward the cheapest model that clears the quality bar."
         },
-        "copilotConductor.optimizeFor": {
+        "tokenProctor.optimizeFor": {
           "type": "string",
           "enum": ["tokens", "turns", "balanced"],
           "default": "tokens",
           "markdownDescription": "How to weigh cost axes in routing:\n- `tokens` — **default** — minimize $/M token price (classic); best for one-shot tasks.\n- `turns` — minimize premium-multiplier × turns; best when agent loops run many turns (e.g. `code_large`, `agentic`).\n- `balanced` — weighted compromise between the two."
         },
-        "copilotConductor.exactTokenCounts": {
+        "tokenProctor.exactTokenCounts": {
           "type": "boolean",
           "default": true,
-          "description": "Use js-tiktoken for exact token counts when available. Falls back to the chars/4 heuristic if the package is not installed."
+          "description": "Use js-tiktoken for exact token counts. Falls back to a chars/4 heuristic if unavailable."
         },
-        "copilotConductor.llmJudge.enabled": {
+        "tokenProctor.llmJudge.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "When the rule-based classifier has low confidence, escalate to an LLM-judge that auto-picks the cheapest available model via vscode.lm."
+          "description": "When rule-based classifier confidence is low, escalate to an LLM judge that auto-picks the cheapest available model via vscode.lm."
         },
-        "copilotConductor.llmJudge.confidenceThreshold": {
+        "tokenProctor.llmJudge.confidenceThreshold": {
           "type": "number",
           "default": 0.85,
           "minimum": 0,
           "maximum": 1,
-          "description": "Rule-based confidence below this triggers the LLM-judge. Default 0.85 means the judge is consulted on most prompts for higher accuracy. 0 = always consult, 1 = never."
+          "description": "Rule-based confidence below this triggers the LLM-judge. Default 0.85 = judge is consulted on most prompts. 0 = always consult, 1 = never."
         }
       }
     }

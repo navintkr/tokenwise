@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
-import { registerConductor } from "./participant.js";
+import { registerProctor } from "./participant.js";
 
 export function activate(context: vscode.ExtensionContext) {
-  registerConductor(context);
-  console.log("Copilot Conductor activated");
+  registerProctor(context);
+  console.log("Token Proctor activated");
 }
 
 export function deactivate() {}

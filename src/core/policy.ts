@@ -1,5 +1,5 @@
 // v0.2 — Policy loader.
-// Reads `.conductor.json` from workspace root or `~/.conductor/config.json`.
+// Reads `.token-proctor.json` from workspace root or `~/.token-proctor/config.json`.
 // Pure JSON for zero-dep loading; YAML can be added later.
 
 import * as fs from "node:fs";
@@ -23,7 +23,7 @@ export interface Policy {
   // Audit
   audit?: {
     enabled?: boolean;                     // default: false
-    path?: string;                         // default: <workspace>/.conductor/audit.jsonl
+    path?: string;                         // default: <workspace>/.token-proctor/audit.jsonl
   };
 
   // Defaults (override settings.json)
@@ -55,10 +55,10 @@ const DEFAULT_POLICY: Policy = {
 export function loadPolicy(workspaceRoot?: string): { policy: Policy; source: string } {
   const candidates: string[] = [];
   if (workspaceRoot) {
-    candidates.push(path.join(workspaceRoot, ".conductor.json"));
-    candidates.push(path.join(workspaceRoot, ".conductor", "config.json"));
+    candidates.push(path.join(workspaceRoot, ".token-proctor.json"));
+    candidates.push(path.join(workspaceRoot, ".token-proctor", "config.json"));
   }
-  candidates.push(path.join(os.homedir(), ".conductor", "config.json"));
+  candidates.push(path.join(os.homedir(), ".token-proctor", "config.json"));
 
   for (const file of candidates) {
     try {

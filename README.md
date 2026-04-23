@@ -1,41 +1,49 @@
-# Copilot Conductor
+# Token Proctor
 
-> Pick the right model. Validate the prompt. See the cost. Before you spend a premium request.
+> Pick the right model. Validate the prompt. See the real cost — tokens **and** turns. Before you spend a premium request.
 
-An open-source layer on top of **GitHub Copilot** that does three things every enterprise eventually asks for:
+An open-source layer on top of **GitHub Copilot** (and any token-priced LLM plan) that answers the three questions every team eventually asks:
 
-1. **Prompt validation** - scores completeness 0–100 and asks targeted follow-ups if the prompt is too vague to finish in one shot.
-2. **Model routing** - picks the cheapest model that clears the quality bar for the task (trivial edit? reasoning? large refactor?).
-3. **Cost estimation** - shows approximate tokens, USD, and premium requests *before* the call.
+1. **Is this prompt ready to run?** — scores completeness 0–100 and suggests follow-ups when it's too vague.
+2. **Which model should run it?** — picks the cheapest model that clears the quality bar, with a knob for token-cost vs agent-turn-cost trade-offs.
+3. **What will it actually cost?** — projects **tokens × turns × $** before the call, including % of your monthly plan allowance.
 
-It ships as:
+Ships as two surfaces from one core:
 
-- **VS Code chat participant** (`@conductor`) - the primary UX, built on the `vscode.chat` + `vscode.lm` APIs.
-- **MCP server** (`copilot-conductor-mcp`) - the same core exposed over Model Context Protocol, so it also works with **Copilot CLI**, Copilot agent mode, Claude Desktop, Cursor, etc.
+- **VS Code chat participant** (`@proctor`) — primary UX, built on `vscode.chat` + `vscode.lm`.
+- **MCP server** (`token-proctor-mcp`) — same core over Model Context Protocol, works with Copilot CLI, Copilot agent mode, Claude Desktop, Cursor, etc.
 
-100% local. No network calls. We don't proxy your prompts anywhere - we call `vscode.lm` (which uses your existing Copilot entitlement) or hand a decision back to the MCP client.
+100% local. No network calls. We don't proxy prompts anywhere — we call `vscode.lm` (your existing Copilot entitlement) or hand a decision back to the MCP client.
 
-Read the full design: [docs/ANALYSIS.md](docs/ANALYSIS.md).
+Full design doc: [docs/ANALYSIS.md](docs/ANALYSIS.md).
+
+---
+
+## What's new in v0.4
+
+- **Turn-aware cost projection.** The LLM judge now predicts **how many agent turns** a prompt will need (1 for Q&A, 10–30 for code_large/agentic), and the cost is `inputTokens × outputTokens × turns × model price`. No more hiding the cost of 20-turn agent loops behind a single-call estimate.
+- **`optimizeFor` knob** — `tokens` (default) minimizes $/M token price; `turns` minimizes `premium × turns` (great for agent loops that run many rounds); `balanced` splits the difference.
+- **Plan-aware allowance %.** Set `plan.monthlyTokenAllowance` in your policy and the summary shows **"this prompt ≈ 4.5% of your squad-plan monthly tokens"**.
+- **Exact tokenization on by default** via `js-tiktoken` (hard dep) using `o200k_base`.
+- **Copilot agent hand-off.** After confirmation, Token Proctor can launch a new Copilot Chat turn with the redacted prompt so Copilot's *own* agent tools (file edits, terminal) drive the work. Model-dropdown auto-switching is attempted but depends on the Copilot Chat build (VS Code does not expose a public API for this yet).
+- **Renamed** from Copilot Conductor → Token Proctor. Participant is now `@proctor`, policy file is `.token-proctor.json`, settings prefix is `tokenProctor.*`.
 
 ---
 
 ## Prerequisites
 
-- **Node.js** ≥ 20 (`node -v` to check)
+- **Node.js** ≥ 20
 - **VS Code** ≥ 1.95
-- **GitHub Copilot** extension installed and signed in (Business or Enterprise entitlement)
+- **GitHub Copilot** extension installed and signed in (Business or Enterprise entitlement recommended for premium models)
 
 ---
 
 ## Quick start
 
 ```bash
-# 1. Clone and install dependencies
-git clone https://github.com/<your-org>/copilot-conductor.git
-cd copilot-conductor
+git clone https://github.com/<your-org>/token-proctor.git
+cd token-proctor
 npm install
-
-# 2. Compile TypeScript
 npm run compile
 ```
 
@@ -43,44 +51,57 @@ npm run compile
 
 1. Open this folder in VS Code.
 2. Press **F5** → an **Extension Development Host** window opens.
-3. In the new window, open **Copilot Chat** (Ctrl+Shift+I / Cmd+Shift+I).
-4. Type:
+3. In the new window, make sure the workspace is the same `token-proctor` folder (so `.token-proctor.json` loads).
+4. Open **Copilot Chat** (`Ctrl+Shift+I`) and type:
 
 ```
-@conductor add caching to fetchUser so repeated calls within 5s return the same result
+@proctor add caching to fetchUser so repeated calls within 5s return the same result
 ```
 
-5. You'll see output like this:
+Sample output:
 
 ```
-Task: code_small (confidence 78%)
+Task: code_small (confidence 90%)
 Completeness: ✅ 72/100 (ready)
-Recommended model: gpt-4o
-Estimate: ~210 in / ~84 out · ~$0.002 · 1× premium · model=gpt-4o
+Recommended model: gpt-4o-mini
+Estimate: ~210 in / ~180 out × 2 turns · ~$0.0005 · base quota · model=gpt-4o-mini · plan=squad 0.01%
+<sub>tokens=exact · judge=on · policy=.token-proctor.json</sub>
+
+🧠 llm-judge(gpt-4o-mini): task=code_small conf=0.90 out≈180 turns≈2 — ...
+
+---
+Recommended model: gpt-4o-mini
+
+🚀 Accept & hand off to Copilot — switches Copilot's chat model to the recommendation
+and lets the Copilot agent drive the change with its own tools (edits, terminal, etc.).
 ```
 
-![Sample output from @conductor](docs/screenshots/sample-output.png)
+Click **🚀 Accept & hand off to Copilot** to have Copilot's default agent take over with file/terminal tools. Token Proctor tries to flip the chat model dropdown automatically (a handful of best-effort command ids); if your Copilot build doesn't expose any of them, you'll see a toast asking you to pick the model manually.
 
-Slash commands:
+### Slash commands
 
-- `@conductor /validate <prompt>` - just the completeness report.
-- `@conductor /route <prompt>` - pick a model (default; auto-forwards unless disabled).
-- `@conductor /cost <prompt>` - tokens + $.
-- `@conductor /explain <prompt>` - everything + the full candidate matrix.
+| Command | What it does |
+|---|---|
+| `@proctor /route <prompt>` | Default. Classify → validate → route → project cost. |
+| `@proctor /validate <prompt>` | Completeness report with weighted dimensions + follow-ups. |
+| `@proctor /cost <prompt>` | Per-turn and total tokens, turns, USD, plan burn %. |
+| `@proctor /explain <prompt>` | Everything + the full candidate model matrix. |
+| `@proctor /confirm <prompt>` | Confirm the last recommendation and forward. |
+| `@proctor /cancel` | Abandon a pending confirmation. |
 
 ### Try the MCP server
 
 ```bash
-# Make sure you've already compiled (npm run compile)
+npm run compile
 node ./out/mcp-server.js
 ```
 
-Register it with your MCP client. Example for **VS Code** (`.vscode/mcp.json`):
+Register it with your MCP client. Example (`.vscode/mcp.json`):
 
 ```json
 {
   "servers": {
-    "copilot-conductor": {
+    "token-proctor": {
       "type": "stdio",
       "command": "node",
       "args": ["${workspaceFolder}/out/mcp-server.js"]
@@ -89,14 +110,14 @@ Register it with your MCP client. Example for **VS Code** (`.vscode/mcp.json`):
 }
 ```
 
-Example for **Copilot CLI** / Claude Desktop (`~/.config/.../mcp.json`):
+For **Copilot CLI** / Claude Desktop:
 
 ```json
 {
   "mcpServers": {
-    "copilot-conductor": {
+    "token-proctor": {
       "command": "npx",
-      "args": ["-y", "copilot-conductor-mcp"]
+      "args": ["-y", "token-proctor-mcp"]
     }
   }
 }
@@ -104,42 +125,59 @@ Example for **Copilot CLI** / Claude Desktop (`~/.config/.../mcp.json`):
 
 Tools exposed:
 
-| Tool | What it does |
+| Tool | Purpose |
 |---|---|
-| `analyze_prompt` | Full pipeline - redact, classify, validate, route, cost. |
+| `analyze_prompt` | Full pipeline — redact, classify, validate, route, project cost. |
 | `validate_prompt` | Completeness score + follow-up questions. |
 | `recommend_model` | Task classification + best model + alternatives. |
-| `estimate_cost` | Tokens + USD against an auto-routed or named model. |
+| `estimate_cost` | Tokens + turns + USD against an auto-routed or named model. |
 | `list_models` | The model catalog (prices, premium multipliers). |
-| `redact_text` | Return a redacted copy using built-in + policy secret patterns. |
-| `get_policy` | Return the loaded `.conductor.json` policy and its source path. |
+| `redact_text` | Redact secrets using built-in + policy patterns. |
+| `get_policy` | Return the loaded `.token-proctor.json` policy and its source path. |
 
 ---
 
 ## Configuration
 
-VS Code settings (`settings.json`):
+### VS Code settings
 
-```json
+```jsonc
 {
-  "copilotConductor.completenessThreshold": 60,
-  "copilotConductor.autoForward": true,
-  "copilotConductor.preferCheap": false,
-  "copilotConductor.exactTokenCounts": true,
-  "copilotConductor.llmJudge.enabled": true,
-  "copilotConductor.llmJudge.confidenceThreshold": 0.6
+  "tokenProctor.completenessThreshold": 60,
+  "tokenProctor.autoForward": true,
+  "tokenProctor.requireConfirmation": true,
+  "tokenProctor.handoffToCopilot": true,
+  "tokenProctor.handoffParticipant": "github.copilot",
+  "tokenProctor.preferCheap": false,
+  "tokenProctor.optimizeFor": "tokens",      // "tokens" | "turns" | "balanced"
+  "tokenProctor.exactTokenCounts": true,
+  "tokenProctor.llmJudge.enabled": true,
+  "tokenProctor.llmJudge.confidenceThreshold": 0.85
 }
 ```
 
-### Policy (v0.2)
+### `optimizeFor` — the key routing knob
 
-Drop a `.conductor.json` at your workspace root (or `~/.conductor/config.json`):
+| Mode | Weights | Best for |
+|---|---|---|
+| `tokens` *(default)* | prioritize $/M token price | One-shot Q&A, docs, creative |
+| `turns` | prioritize low `premium × turns` burn | Agent loops (`code_large`, `agentic`) |
+| `balanced` | weighted compromise | Mixed workloads |
+
+**Why it matters:** Claude Sonnet has a 1× premium multiplier. On an agentic prompt predicted to run 20 turns, that's 20 premium requests. An `o4-mini` at 0.33× would burn ~6.6 — about 70% less of your monthly bucket. `optimizeFor: turns` surfaces that trade-off.
+
+### Policy file — `.token-proctor.json`
+
+Drop at workspace root (or `~/.token-proctor/config.json`):
 
 ```json
 {
-  "allowModels": ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"],
+  "allowModels": ["gpt-4o-mini", "gpt-4o", "claude-sonnet-4", "o4-mini", "gemini-flash"],
   "denyModels": ["claude-opus"],
   "premiumModelsAllowedFor": ["code_large", "reasoning"],
+  "optimizeFor": "balanced",
+  "preferCheap": true,
+  "completenessThreshold": 60,
   "redact": {
     "builtins": true,
     "patterns": ["CORP-[A-Z0-9]{12}"],
@@ -147,28 +185,35 @@ Drop a `.conductor.json` at your workspace root (or `~/.conductor/config.json`):
   },
   "audit": {
     "enabled": true,
-    "path": ".conductor/audit.jsonl"
+    "path": ".token-proctor/audit.jsonl"
   },
-  "llmJudge": { "enabled": true, "confidenceThreshold": 0.6 }
+  "llmJudge": {
+    "enabled": true,
+    "confidenceThreshold": 0.85
+  },
+  "plan": {
+    "name": "squad",
+    "monthlyTokenAllowance": 10000000,
+    "overageUsdPerM": 5.0
+  }
 }
 ```
 
+Block reference:
+
 - **allow/deny/premium-for-task** — gate the model pool the router can pick from.
-- **redact** — built-in detectors cover AWS keys, GitHub/Slack/OpenAI/Stripe tokens, JWTs, PEM private keys, Google API keys, generic high-entropy secrets. Matches are replaced with `[REDACTED:kind]` **before** anything leaves the pure functions — the forwarded prompt never contains raw secrets.
+- **redact** — built-in detectors cover AWS access/secret keys, GitHub/Slack/OpenAI/Stripe tokens, JWTs, PEM private keys, Google API keys. Matches are replaced with `[REDACTED:kind]` before anything leaves the pure-function core. The forwarded prompt never contains raw secrets.
 - **audit** — opt-in JSONL log of every decision (task, model, cost, redactions, verdict). Local file; no network.
+- **llmJudge** — when rule-based confidence < `confidenceThreshold`, call the cheapest available `vscode.lm` model to classify + estimate output tokens + estimate turns.
+- **plan** — token-based plan context. When `monthlyTokenAllowance` is set, the summary shows **"plan=`name` X.Y%"**.
 
-### LLM-judge (v0.3)
+### Exact token counting
 
-When the rule-based classifier's confidence is below the threshold, Conductor asks a cheap LLM to double-check the task label. The judge auto-picks **the cheapest available `vscode.lm` model** (mini/haiku/flash/nano families first). Judge output is merged into the classification and surfaced in the summary (`🧠 llm-judge(...)`).
+`js-tiktoken` is a regular dependency; token counts are exact (`o200k_base`) on every run. The summary tags `tokens=exact`. If the dep fails to load for some reason, falls back to a `chars/4 + punctuation` heuristic and tags `tokens=heuristic`.
 
-On by default. Turn off globally with `copilotConductor.llmJudge.enabled: false`, or per-repo with `"llmJudge": { "enabled": false }` in `.conductor.json`.
+### Model catalog
 
-### Exact token counts (v0.3)
-
-If `js-tiktoken` is installed (listed as an `optionalDependency`), Conductor uses it for exact token counts. Otherwise it falls back to the `chars/4` heuristic. The summary tags which mode is in use.
-
-Model catalog, prices, and premium multipliers are plain data in
-[`src/data/pricing.ts`](src/data/pricing.ts). Fork it, tune it, ship it.
+Prices and premium multipliers are plain data in [`src/data/pricing.ts`](src/data/pricing.ts). Fork it, tune it for your org's real rates, ship it.
 
 ---
 
@@ -176,7 +221,7 @@ Model catalog, prices, and premium multipliers are plain data in
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ VS Code Chat Participant (@conductor)                    │ ◄── primary UX
+│ VS Code Chat Participant (@proctor)                    │ ◄── primary UX
 │ src/participant.ts                                       │
 └────────────┬────────────────────────────────────────────┘
              │
@@ -184,8 +229,10 @@ Model catalog, prices, and premium multipliers are plain data in
              ▼             ▼                               │
    ┌────────────────────────────────────┐                  │
    │ Core (src/core/)                   │   src/mcp-server.ts
-   │   taskClassifier • promptValidator │ ◄── also exposed
-   │   modelRouter • costEstimator      │     over MCP
+   │   taskClassifier • promptValidator │ ◄── same core over MCP
+   │   modelRouter • costEstimator      │
+   │   llmJudge • redactor • policy     │
+   │   tokens (js-tiktoken) • audit     │
    └────────────────────────────────────┘
              ▲
              │
@@ -194,32 +241,30 @@ Model catalog, prices, and premium multipliers are plain data in
    └────────────────────┘
 ```
 
-All four core modules are pure functions. No I/O, no globals, no network.
-Easy to unit-test, easy to swap any piece (e.g. replace the rule-based
-classifier with an LLM judge without touching the rest).
+Core modules are pure functions (except `policy` and `audit` which touch the filesystem). No globals, no network. Trivial to unit-test, easy to swap any piece.
 
 ---
 
 ## Why this exists
 
-GitHub Copilot Business/Enterprise bills per **premium request**. In practice,
-most premium-request burn is caused by:
+Copilot Business/Enterprise (and most token-priced LLM plans) bill per **premium request** or per **token**. In practice, most overspend comes from:
 
-- users defaulting to the most powerful model for trivial edits, and
-- vague prompts that require multiple expensive rounds to resolve.
+- Users defaulting to the most powerful model for trivial edits.
+- Vague prompts that require many expensive round-trips to finish.
+- Agent mode running 10–30 turns of a 1× premium model on what could have been a 2-turn job on a 0× model.
 
-Conductor attacks both. It's the cheapest lever an org can pull on Copilot
-spend - and it composes with, rather than replaces, whatever Copilot does next.
+Token Proctor surfaces all three *before* the call. It's the cheapest lever an org can pull on LLM spend — and it composes with, rather than replaces, whatever the underlying chat or agent does next.
 
 ---
 
 ## Roadmap
 
-- [x] v0.1 - classifier, validator, router, cost, chat participant, MCP server.
-- [x] v0.2 - `.conductor.json` policy (allow/deny/premium-gating) + secret redaction + JSONL audit log.
-- [x] v0.3 - LLM-judge fallback classifier (auto-picks cheapest `vscode.lm` model) + `js-tiktoken` for exact counts.
-- [ ] v0.4 - `vscode.lm.registerTool` so Copilot agent mode can call us directly.
-- [ ] v0.5 - Server-side GitHub Copilot Extension for centralized org routing.
+- [x] v0.1 — classifier, validator, router, cost, chat participant, MCP server.
+- [x] v0.2 — `.token-proctor.json` policy (allow/deny/premium-gating) + secret redaction + JSONL audit log.
+- [x] v0.3 — LLM judge fallback classifier + `js-tiktoken` for exact counts.
+- [x] v0.4 — **turns-aware cost projection**, **plan-aware allowance %**, **`optimizeFor` knob**, **Copilot agent hand-off**, rename to Token Proctor.
+- [ ] v0.5 — `vscode.lm.registerTool` so Copilot agent mode can call Proctor directly mid-turn.
+- [ ] v0.6 — Server-side GitHub Copilot Extension for centralized org routing and fleet-wide budget enforcement.
 
 ---
 

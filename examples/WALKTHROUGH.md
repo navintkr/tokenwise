@@ -15,13 +15,13 @@ All prompts below are typed into Copilot Chat, not a terminal.
 ## 1. Sanity check — trivial task
 
 ```
-@conductor add a JSDoc comment to helloWorld in #file:hello.ts
+@proctor add a JSDoc comment to helloWorld in #file:hello.ts
 ```
 
 **Expected**
 - `Task: trivial` (or `code_small`)
 - Cheap model picked (e.g. `gpt-4o-mini` / `claude-haiku` / `gemini-flash`)
-- Summary footer: `tokens=exact|heuristic · judge=on · policy=.conductor.json`
+- Summary footer: `tokens=exact|heuristic · judge=on · policy=.token-proctor.json`
 - Auto-forwards; you should see a JSDoc suggestion stream back.
 
 ---
@@ -29,7 +29,7 @@ All prompts below are typed into Copilot Chat, not a terminal.
 ## 2. Validation — weak prompt blocks forwarding
 
 ```
-@conductor fix it
+@proctor fix it
 ```
 
 **Expected**
@@ -42,7 +42,7 @@ All prompts below are typed into Copilot Chat, not a terminal.
 ## 3. Reasoning — picks reasoning tier
 
 ```
-@conductor /explain why would fetchUser occasionally return stale data after a deploy
+@proctor /explain why would fetchUser occasionally return stale data after a deploy
 ```
 
 **Expected**
@@ -55,7 +55,7 @@ All prompts below are typed into Copilot Chat, not a terminal.
 ## 4. LLM-judge fires on ambiguous prompts
 
 ```
-@conductor look at the thing and make it better somehow
+@proctor look at the thing and make it better somehow
 ```
 
 **Expected**
@@ -68,7 +68,7 @@ All prompts below are typed into Copilot Chat, not a terminal.
 ## 5. Cost-only view
 
 ```
-@conductor /cost refactor fetchUser to use async/await with error handling
+@proctor /cost refactor fetchUser to use async/await with error handling
 ```
 
 **Expected**
@@ -81,13 +81,13 @@ All prompts below are typed into Copilot Chat, not a terminal.
 ## 6. Redaction + policy
 
 ```
-@conductor /validate my CORP-AB12CD34EF56 token should not leak: sk-proj-abcdefghij1234567890
+@proctor /validate my CORP-AB12CD34EF56 token should not leak: sk-proj-abcdefghij1234567890
 ```
 
 **Expected**
 - `🛡️ Redacted before analysis: 1× custom:CORP-[A-Z0-9]{12}…, 1× openai-key`
 - With `blockOnMatch: false` (current policy): proceeds after redaction.
-- Flip `blockOnMatch: true` in `.conductor.json`, re-run → forwarding refused.
+- Flip `blockOnMatch: true` in `.token-proctor.json`, re-run → forwarding refused.
 
 ---
 
@@ -96,7 +96,7 @@ All prompts below are typed into Copilot Chat, not a terminal.
 After running the prompts above, check:
 
 ```powershell
-Get-Content .conductor/audit.jsonl | Select-Object -Last 5
+Get-Content .token-proctor/audit.jsonl | Select-Object -Last 5
 ```
 
 Each line is a JSON record: `ts, task, modelChosen, inputTokens, totalUsd, premiumRequests, redactions, verdict, policySource`.
@@ -112,7 +112,7 @@ npx @modelcontextprotocol/inspector node ./out/mcp-server.js
 ```
 
 In the inspector UI, try each tool:
-- `get_policy` → returns the loaded `.conductor.json`.
+- `get_policy` → returns the loaded `.token-proctor.json`.
 - `redact_text` with `{ "text": "AKIAABCDEFGHIJKLMNOP and sk-abcdef1234567890abcdef" }` → both redacted.
 - `analyze_prompt` with `{ "prompt": "add pagination to /users" }` → full report.
 - `estimate_cost` with `{ "prompt": "...", "modelId": "claude-sonnet-4" }`.
@@ -123,10 +123,10 @@ In the inspector UI, try each tool:
 
 | Change | Where | Expected |
 |---|---|---|
-| `"llmJudge": { "enabled": false }` | `.conductor.json` | Summary shows `judge=off`; no 🧠 line. |
+| `"llmJudge": { "enabled": false }` | `.token-proctor.json` | Summary shows `judge=off`; no 🧠 line. |
 | Uninstall `js-tiktoken` (`npm uninstall js-tiktoken`) | terminal | Summary shows `tokens=heuristic`. |
 | `"autoForward": false` | VS Code settings | Summary + routing shown, no model call made. |
-| `"preferCheap": true` | `.conductor.json` | Cheap tier wins more often; watch the routing rationale. |
+| `"preferCheap": true` | `.token-proctor.json` | Cheap tier wins more often; watch the routing rationale. |
 
 ---
 

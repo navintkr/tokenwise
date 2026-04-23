@@ -11,9 +11,9 @@ import {
 let cachedPolicy: { policy: Policy; source: string } | null = null;
 let tiktokenAttempted = false;
 
-export function registerConductor(context: vscode.ExtensionContext) {
+export function registerProctor(context: vscode.ExtensionContext) {
   const participant = vscode.chat.createChatParticipant(
-    "copilot-conductor.conductor",
+    "token-proctor.proctor",
     handler
   );
   participant.iconPath = new vscode.ThemeIcon("rocket");
@@ -26,7 +26,7 @@ export function registerConductor(context: vscode.ExtensionContext) {
     provideFollowups(result: vscode.ChatResult) {
       const md = result.metadata as ChatMeta | undefined;
       if (!md?.awaitingConfirmation || !md.lastPrompt) return [];
-      const cfg = vscode.workspace.getConfiguration("copilotConductor");
+      const cfg = vscode.workspace.getConfiguration("tokenProctor");
       const handoff = cfg.get<boolean>("handoffToCopilot", true);
       const handoffId = cfg.get<string>("handoffParticipant", "github.copilot");
       const prompt = md.redactedPrompt ?? md.lastPrompt;
@@ -57,17 +57,17 @@ export function registerConductor(context: vscode.ExtensionContext) {
   // to the default Copilot agent (which has file/terminal/edit tools).
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      "copilot-conductor.handoff",
+      "token-proctor.handoff",
       async (args: { prompt: string; modelId: string; modelFamily: string }) => {
         if (!args?.prompt) return;
         const res = await tryToSwitchCopilotModel(args.modelId, args.modelFamily);
         if (res.ok) {
           void vscode.window.showInformationMessage(
-            `Copilot Conductor: switched chat model via \`${res.via}\`.`
+            `Token Proctor: switched chat model via \`${res.via}\`.`
           );
         } else {
           void vscode.window.showWarningMessage(
-            `Copilot Conductor: could not auto-switch model. ${res.detail ?? ""} Please pick \`${args.modelId}\` in the chat model dropdown before sending.`,
+            `Token Proctor: could not auto-switch model. ${res.detail ?? ""} Please pick \`${args.modelId}\` in the chat model dropdown before sending.`,
             "Open model picker"
           ).then(async (choice) => {
             if (choice !== "Open model picker") return;
@@ -96,7 +96,7 @@ export function registerConductor(context: vscode.ExtensionContext) {
           await vscode.env.clipboard.writeText(args.prompt);
           await vscode.commands.executeCommand("workbench.action.chat.focus");
           void vscode.window.showInformationMessage(
-            "Copilot Conductor: prompt copied to clipboard — paste into Copilot Chat."
+            "Token Proctor: prompt copied to clipboard — paste into Copilot Chat."
           );
         }
       }
@@ -104,10 +104,10 @@ export function registerConductor(context: vscode.ExtensionContext) {
   );
 
   // Diagnostic: dumps every command in this VS Code build that looks
-  // model/picker related. Run from command palette: "Copilot Conductor:
+  // model/picker related. Run from command palette: "Token Proctor:
   // Diagnose Model Commands".
   context.subscriptions.push(
-    vscode.commands.registerCommand("copilot-conductor.diagnoseModelCommands", async () => {
+    vscode.commands.registerCommand("token-proctor.diagnoseModelCommands", async () => {
       const all = await vscode.commands.getCommands(true);
       const hits = all.filter((c) => /(chat|copilot).*(model|picker)|language.?model/i.test(c));
       const msg = hits.length
@@ -122,10 +122,10 @@ export function registerConductor(context: vscode.ExtensionContext) {
   // whatever is installed by the time the first request runs.
   if (!tiktokenAttempted) {
     tiktokenAttempted = true;
-    const cfg = vscode.workspace.getConfiguration("copilotConductor");
+    const cfg = vscode.workspace.getConfiguration("tokenProctor");
     if (cfg.get<boolean>("exactTokenCounts", true)) {
       void tryInstallTiktoken().then((ok) => {
-        console.log(`Copilot Conductor: exact tokenization ${ok ? "enabled (js-tiktoken)" : "unavailable — using heuristic"}`);
+        console.log(`Token Proctor: exact tokenization ${ok ? "enabled (js-tiktoken)" : "unavailable — using heuristic"}`);
       });
     }
   }
@@ -146,7 +146,7 @@ async function handler(
   stream: vscode.ChatResponseStream,
   token: vscode.CancellationToken
 ): Promise<vscode.ChatResult> {
-  const cfg = vscode.workspace.getConfiguration("copilotConductor");
+  const cfg = vscode.workspace.getConfiguration("tokenProctor");
   const threshold = cfg.get<number>("completenessThreshold", 60);
   const autoForward = cfg.get<boolean>("autoForward", true);
   const requireConfirmation = cfg.get<boolean>("requireConfirmation", true);
@@ -155,7 +155,7 @@ async function handler(
   const judgeEnabledCfg = cfg.get<boolean>("llmJudge.enabled", true);
   const judgeThreshold = cfg.get<number>("llmJudge.confidenceThreshold", 0.85);
 
-  // Policy (v0.2) — reload each turn so edits to `.conductor.json` take effect.
+  // Policy (v0.2) — reload each turn so edits to `.token-proctor.json` take effect.
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   cachedPolicy = loadPolicy(wsRoot);
   const { policy, source: policySource } = cachedPolicy;
@@ -246,7 +246,7 @@ async function handler(
   const isConfirmed = cmd === "confirm";
   if (!autoForward) {
     stream.markdown(
-      "\n\n_`copilotConductor.autoForward` is off — use your normal chat model to run the prompt._"
+      "\n\n_`tokenProctor.autoForward` is off — use your normal chat model to run the prompt._"
     );
     writeAudit("participant", cmd, result, policySource, false);
     return { metadata: { command: cmd } as ChatMeta };
@@ -262,14 +262,14 @@ async function handler(
       }]));
       const link = new vscode.MarkdownString(
         `\n\n---\n**Recommended model:** \`${result.routing.model.id}\`\n\n` +
-        `[🚀 **Accept & hand off to Copilot**](command:copilot-conductor.handoff?${args}) ` +
+        `[🚀 **Accept & hand off to Copilot**](command:token-proctor.handoff?${args}) ` +
         `— switches Copilot's chat model to the recommendation and lets the Copilot ` +
         `agent drive the change with its own tools (edits, terminal, etc.).\n\n` +
         `_If the model can't be switched automatically (older Copilot builds), ` +
         `pick \`${result.routing.model.id}\` in the chat model picker, then click the ` +
         `hand-off button again._\n`
       );
-      link.isTrusted = { enabledCommands: ["copilot-conductor.handoff"] };
+      link.isTrusted = { enabledCommands: ["token-proctor.handoff"] };
       stream.markdown(link);
     } else {
       stream.markdown(
@@ -445,7 +445,7 @@ async function tryToSwitchCopilotModel(
   let commands: string[] = [];
   try { commands = await vscode.commands.getCommands(true); } catch { /* ignore */ }
   const matched = commands.filter((c) => /(chat|copilot).*model/i.test(c));
-  console.log("Copilot Conductor: model-ish commands in this build:", matched);
+  console.log("Token Proctor: model-ish commands in this build:", matched);
 
   for (const cmd of candidateCmds) {
     if (!commands.includes(cmd)) continue;
@@ -545,8 +545,8 @@ function renderCost(stream: vscode.ChatResponseStream, r: AnalyzeAsyncResult) {
     `- Tokenization: \`${isExactTokenization() ? "exact (js-tiktoken)" : "heuristic"}\`\n`
   );
   stream.markdown(
-    "\n_Prices are list prices in [`src/data/pricing.ts`](command:copilot-conductor.openPricing); " +
-    "override in your fork for real org rates. Set `plan` in `.conductor.json` for allowance %._\n"
+    "\n_Prices are list prices in [`src/data/pricing.ts`](command:token-proctor.openPricing); " +
+    "override in your fork for real org rates. Set `plan` in `.token-proctor.json` for allowance %._\n"
   );
 }
 
@@ -579,7 +579,7 @@ function writeAudit(
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
   const filePath = cachedPolicy.policy.audit.path
     ? path.resolve(wsRoot, cachedPolicy.policy.audit.path)
-    : path.join(wsRoot, ".conductor", "audit.jsonl");
+    : path.join(wsRoot, ".token-proctor", "audit.jsonl");
 
   const entry: AuditEntry = {
     ts: new Date().toISOString(),

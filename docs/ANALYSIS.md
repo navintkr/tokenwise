@@ -1,4 +1,4 @@
-# Copilot Conductor — Detailed Analysis
+# Token Proctor — Detailed Analysis
 
 An open‑source layer on top of GitHub Copilot that does three things before a request hits a model:
 
@@ -16,7 +16,7 @@ GitHub Copilot is not a single product. There are five real extension surfaces, 
 
 | Surface | What it is | Can we route models? | Can we pre‑validate prompts? | Enterprise adoption |
 |---|---|---|---|---|
-| **VS Code Chat Participant** (`@conductor`) | Custom `@mention` agent in Copilot Chat, uses `vscode.lm` API to call *any* model the user has access to | ✅ Yes — we pick `vscode.lm.selectChatModels({...})` | ✅ Yes — we see the raw prompt first | ★★★★★ (easy, per‑user install, works with Copilot Business/Enterprise) |
+| **VS Code Chat Participant** (`@proctor`) | Custom `@mention` agent in Copilot Chat, uses `vscode.lm` API to call *any* model the user has access to | ✅ Yes — we pick `vscode.lm.selectChatModels({...})` | ✅ Yes — we see the raw prompt first | ★★★★★ (easy, per‑user install, works with Copilot Business/Enterprise) |
 | **Language Model Tool** (`vscode.lm.registerTool`) | A tool Copilot's agent mode can call | ❌ No — Copilot chooses the model | ⚠️ Only indirectly (you can *advise* but not gate) | ★★★★ |
 | **MCP Server** | Tools/resources exposed via Model Context Protocol; works with Copilot agent mode, Copilot CLI, Claude Desktop, Cursor, etc. | ❌ Not directly, but you can expose a `route_model` tool the agent must call | ✅ Yes, via a `validate_prompt` tool | ★★★★★ (portable across clients) |
 | **GitHub Copilot Extension** (GitHub App / platform) | Server‑side extension in the `@github` ecosystem | ✅ Yes — you own the completion | ✅ Yes | ★★★ (heavier: GitHub App, OAuth, hosting) |
@@ -26,7 +26,7 @@ GitHub Copilot is not a single product. There are five real extension surfaces, 
 
 Ship **two surfaces from one codebase**:
 
-- **Primary: VS Code Chat Participant** — best UX. The user types `@conductor fix the flaky test in checkout.spec.ts` and we:
+- **Primary: VS Code Chat Participant** — best UX. The user types `@proctor fix the flaky test in checkout.spec.ts` and we:
   1. classify the task,
   2. score prompt completeness (ask follow‑ups if low),
   3. pick a model,
@@ -91,7 +91,7 @@ The matrix is data, not code — lives in [`src/data/pricing.ts`](../src/data/pr
 - attached context size (file count, token estimate)
 - presence of code blocks / stack traces / error messages
 - workspace signals (language, framework, file being edited)
-- user override (`@conductor /reason …`)
+- user override (`@proctor /reason …`)
 
 Starter implementation is rule‑based + keyword heuristics. Drop‑in upgrade path: swap `TaskClassifier` for an LLM‑based classifier using the cheapest available model.
 
@@ -133,7 +133,7 @@ Output is a single line: `~1,420 in / ~570 out · ~$0.018 · 1 premium request �
 | Concern | How we handle it |
 |---|---|
 | Data residency | We never send prompts anywhere ourselves — we call `vscode.lm` which uses the user's existing Copilot entitlement. Validation + routing is 100% local. |
-| Policy | `.conductor.yaml` at repo root or `~/.conductor/config.yaml`. Supports model allow/deny lists, redaction patterns, required task types for premium models. |
+| Policy | `.conductor.yaml` at repo root or `~/.token-proctor/config.yaml`. Supports model allow/deny lists, redaction patterns, required task types for premium models. |
 | Secrets | Pre‑send regex redaction (AWS keys, PEM blocks, JWTs) with visible `[REDACTED]` markers. Block‑list modes for high‑sensitivity repos. |
 | Telemetry | Off by default. Opt‑in JSONL log local to workspace. No network calls. |
 | Supply chain | Zero runtime deps beyond VS Code API + MCP SDK. Everything else is dev‑only. |
@@ -143,9 +143,9 @@ Output is a single line: `~1,420 in / ~570 out · ~$0.018 · 1 premium request �
 
 ## 7. Roadmap
 
-**v0.1** — classifier, validator, cost, router; chat participant `@conductor`; MCP server.
+**v0.1** — classifier, validator, cost, router; chat participant `@proctor`; MCP server.
 
-**v0.2 (shipped)** — `.conductor.json` policy loader (allow/deny/premium-gating), built-in secret redaction (AWS, GitHub, Slack, OpenAI, Stripe, JWT, PEM, Google), JSONL audit log (opt-in).
+**v0.2 (shipped)** — `.token-proctor.json` policy loader (allow/deny/premium-gating), built-in secret redaction (AWS, GitHub, Slack, OpenAI, Stripe, JWT, PEM, Google), JSONL audit log (opt-in).
 
 **v0.3 (shipped)** — LLM-judge fallback classifier that auto-picks the cheapest available `vscode.lm` model; exact token counts via optional `js-tiktoken`. Both configurable and on by default.
 

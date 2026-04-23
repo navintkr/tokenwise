@@ -1,4 +1,4 @@
-// Sample file so `@conductor` has real code to reason about during testing.
+// Sample file so `@proctor` has real code to reason about during testing.
 // Intentionally simple — the point is to exercise the pipeline, not this code.
 
 export function helloWorld(name?: string): string {

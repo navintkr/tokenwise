@@ -2,7 +2,7 @@
 // MCP server — exposes Conductor's core as tools over stdio.
 // Works with Copilot agent mode, Copilot CLI, Claude Desktop, Cursor, etc.
 //
-// v0.2: policy-aware (`.conductor.json`), redacts secrets in prompts and
+// v0.2: policy-aware (`.token-proctor.json`), redacts secrets in prompts and
 //       attached context before analysis, optional JSONL audit log.
 // v0.3: exact token counts via js-tiktoken when installed.
 
@@ -28,7 +28,7 @@ void tryInstallTiktoken();
 const { policy, source: policySource } = loadPolicy(process.cwd());
 
 const server = new Server(
-  { name: "copilot-conductor", version: "0.2.0" },
+  { name: "token-proctor", version: "0.2.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -36,7 +36,7 @@ const TOOLS = [
   {
     name: "analyze_prompt",
     description:
-      "Run the full Conductor pipeline on a prompt: redact, classify, validate, route, cost. Applies policy if .conductor.json is present.",
+      "Run the full Conductor pipeline on a prompt: redact, classify, validate, route, cost. Applies policy if .token-proctor.json is present.",
     inputSchema: {
       type: "object",
       properties: {
@@ -132,7 +132,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         if (policy.audit?.enabled) {
           const filePath = policy.audit.path
             ? path.resolve(process.cwd(), policy.audit.path)
-            : path.join(process.cwd(), ".conductor", "audit.jsonl");
+            : path.join(process.cwd(), ".token-proctor", "audit.jsonl");
           writeAuditEntry(filePath, {
             ts: new Date().toISOString(),
             surface: "mcp",
@@ -246,7 +246,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error(
-    `copilot-conductor MCP server ready (policy=${policySource}, tokens=${
+    `token-proctor MCP server ready (policy=${policySource}, tokens=${
       isExactTokenization() ? "exact" : "heuristic"
     })`
   );

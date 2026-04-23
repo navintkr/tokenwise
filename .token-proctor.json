@@ -10,7 +10,7 @@
   },
   "audit": {
     "enabled": true,
-    "path": ".conductor/audit.jsonl"
+    "path": ".token-proctor/audit.jsonl"
   },
   "llmJudge": {
     "enabled": true,
