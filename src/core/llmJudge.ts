@@ -16,6 +16,8 @@ export interface JudgeResult {
   rationale?: string;
   /** Estimated output tokens the chosen model will produce for this prompt. */
   outputTokensEstimate?: number;
+  /** Estimated number of agent turns (LLM round-trips) to complete this task. */
+  turnsEstimate?: number;
 }
 
 export type JudgeFn = (prompt: string) => Promise<JudgeResult | null>;
@@ -32,11 +34,12 @@ export const JUDGE_PROMPT = [
   "- creative     (naming, commit msg, README, copywriting)",
   "- agentic      (multi-step, tool-use, scaffolding, e2e)",
   "",
-  "Also estimate how many output tokens a capable model will produce when answering this request.",
-  "Be realistic: short answers 50-300, typical code edits 300-1500, large refactors 2000-8000, long reasoning 1500-5000.",
+  "Also estimate, realistically:",
+  "- outputTokens: tokens the model will produce in ONE turn (50-300 short, 300-1500 typical edit, 2000-8000 big refactor, 1500-5000 long reasoning).",
+  "- turns: total agent round-trips to finish (1 for a pure Q&A or one-shot edit, 3-8 for multi-file code_small, 10-30 for code_large/agentic, 5-15 for reasoning).",
   "",
   "Reply with STRICT JSON on one line, no prose, no backticks, no prefix:",
-  `{"task":"<label>","confidence":<0..1>,"outputTokens":<integer>,"rationale":"<=20 words"}`,
+  `{"task":"<label>","confidence":<0..1>,"outputTokens":<integer>,"turns":<integer>,"rationale":"<=20 words"}`,
 ].join("\n");
 
 export function parseJudgeResponse(text: string): Omit<JudgeResult, "modelId"> | null {
@@ -57,11 +60,15 @@ export function parseJudgeResponse(text: string): Omit<JudgeResult, "modelId"> |
     const outTok = typeof obj.outputTokens === "number" && obj.outputTokens > 0
       ? Math.round(obj.outputTokens)
       : undefined;
+    const turns = typeof obj.turns === "number" && obj.turns > 0
+      ? Math.max(1, Math.round(obj.turns))
+      : undefined;
     return {
       task: obj.task,
       confidence: Math.max(0, Math.min(1, conf)),
       rationale: typeof obj.rationale === "string" ? obj.rationale : undefined,
       outputTokensEstimate: outTok,
+      turnsEstimate: turns,
     };
   } catch {
     return null;

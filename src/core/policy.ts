@@ -33,14 +33,21 @@ export interface Policy {
   // LLM judge
   llmJudge?: {
     enabled?: boolean;                     // default: true
-    confidenceThreshold?: number;          // default: 0.6
+    confidenceThreshold?: number;          // default: 0.85
+  };
+
+  // Token-based plan context — drives "% of monthly allowance" in summary.
+  plan?: {
+    name?: string;                         // e.g. "squad", "fleet", "free", "internal"
+    monthlyTokenAllowance?: number;        // tokens bundled per user per month
+    overageUsdPerM?: number;               // USD per 1M tokens beyond allowance
   };
 }
 
 const DEFAULT_POLICY: Policy = {
   redact: { builtins: true, blockOnMatch: false },
   audit: { enabled: false },
-  llmJudge: { enabled: true, confidenceThreshold: 0.6 },
+  llmJudge: { enabled: true, confidenceThreshold: 0.85 },
 };
 
 export function loadPolicy(workspaceRoot?: string): { policy: Policy; source: string } {
@@ -75,6 +82,7 @@ export function mergePolicy(a: Policy, b: Policy): Policy {
     completenessThreshold: b.completenessThreshold ?? a.completenessThreshold,
     preferCheap: b.preferCheap ?? a.preferCheap,
     llmJudge: { ...(a.llmJudge ?? {}), ...(b.llmJudge ?? {}) },
+    plan: { ...(a.plan ?? {}), ...(b.plan ?? {}) },
   };
 }
 

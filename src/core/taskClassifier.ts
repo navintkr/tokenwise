@@ -111,6 +111,8 @@ export interface ClassifyAsyncOptions {
 export interface ClassifyAsyncResult extends ClassificationResult {
   /** If the LLM judge was consulted and provided one, its output-token estimate. */
   judgeOutputTokensEstimate?: number;
+  /** If the LLM judge provided one, estimated agent turns. */
+  judgeTurnsEstimate?: number;
   judgeModelId?: string;
 }
 
@@ -135,9 +137,12 @@ export async function classifyAsync(
         ...base.signals,
         `llm-judge(${judged.modelId}): task=${judged.task} conf=${judged.confidence.toFixed(2)}${
           judged.outputTokensEstimate ? ` out≈${judged.outputTokensEstimate}` : ""
-        }${judged.rationale ? ` — ${judged.rationale}` : ""}`,
+        }${judged.turnsEstimate ? ` turns≈${judged.turnsEstimate}` : ""}${
+          judged.rationale ? ` — ${judged.rationale}` : ""
+        }`,
       ],
       judgeOutputTokensEstimate: judged.outputTokensEstimate,
+      judgeTurnsEstimate: judged.turnsEstimate,
       judgeModelId: judged.modelId,
     };
   } catch {

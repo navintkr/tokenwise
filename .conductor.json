@@ -14,7 +14,13 @@
   },
   "llmJudge": {
     "enabled": true,
-    "confidenceThreshold": 0.6
+    "confidenceThreshold": 0.85
+  },
+  "plan": {
+    "name": "squad",
+    "//": "Token-based plan: example 10M tokens/user/month, $5 overage per 1M.",
+    "monthlyTokenAllowance": 10000000,
+    "overageUsdPerM": 5.0
   },
   "completenessThreshold": 60,
   "preferCheap": true

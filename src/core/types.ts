@@ -54,4 +54,12 @@ export interface CostEstimate {
   premiumRequests: number;
   model: string;
   humanReadable: string;
+  /** Estimated agent turns (1 = a single LLM call; more for agentic/code_large). */
+  turnsEstimate?: number;
+  /** Total tokens across all turns (input + output). */
+  totalTokensEstimate?: number;
+  /** % of monthly plan allowance this prompt is projected to consume (0-100+). */
+  planBurnPercent?: number;
+  /** Name of the plan this was measured against ("squad", "fleet", or custom). */
+  planName?: string;
 }

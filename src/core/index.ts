@@ -144,6 +144,12 @@ export async function analyzeAsync(input: AnalyzeAsyncInput): Promise<AnalyzeAsy
     inputTokens,
     task: classification.task,
     outputTokensOverride: (classification as any).judgeOutputTokensEstimate,
+    turnsOverride: (classification as any).judgeTurnsEstimate,
+    plan: policy.plan?.monthlyTokenAllowance ? {
+      name: policy.plan.name ?? "plan",
+      monthlyTokenAllowance: policy.plan.monthlyTokenAllowance,
+      overageUsdPerM: policy.plan.overageUsdPerM,
+    } : undefined,
   });
 
   return {

@@ -527,17 +527,24 @@ function renderRouting(stream: vscode.ChatResponseStream, r: AnalyzeAsyncResult)
 
 function renderCost(stream: vscode.ChatResponseStream, r: AnalyzeAsyncResult) {
   stream.markdown("\n### Cost estimate\n\n");
+  const turns = r.cost.turnsEstimate ?? 1;
+  const planLine = r.cost.planBurnPercent !== undefined
+    ? `- Plan burn: **${r.cost.planBurnPercent.toFixed(r.cost.planBurnPercent < 1 ? 2 : 1)}%** of \`${r.cost.planName}\` monthly allowance\n`
+    : "";
   stream.markdown(
-    `- Input tokens: **${r.cost.inputTokens.toLocaleString()}**\n` +
-    `- Est. output tokens: **${r.cost.outputTokensEstimate.toLocaleString()}**\n` +
-    `- Est. USD: **$${r.cost.totalUsd.toFixed(4)}**\n` +
-    `- Premium requests: **${r.cost.premiumRequests}**\n` +
+    `- Input tokens (per turn): **${r.cost.inputTokens.toLocaleString()}**\n` +
+    `- Est. output tokens (per turn): **${r.cost.outputTokensEstimate.toLocaleString()}**\n` +
+    `- Est. turns: **${turns}** ${turns > 1 ? "_(agent loop)_" : "_(single call)_"}\n` +
+    (r.cost.totalTokensEstimate ? `- Total tokens (all turns): **${r.cost.totalTokensEstimate.toLocaleString()}**\n` : "") +
+    `- Est. USD total: **$${r.cost.totalUsd.toFixed(4)}**\n` +
+    `- Premium requests total: **${r.cost.premiumRequests.toFixed(1)}**\n` +
+    planLine +
     `- Model: \`${r.cost.model}\`\n` +
     `- Tokenization: \`${isExactTokenization() ? "exact (js-tiktoken)" : "heuristic"}\`\n`
   );
   stream.markdown(
     "\n_Prices are list prices in [`src/data/pricing.ts`](command:copilot-conductor.openPricing); " +
-    "override in your fork for real org rates._\n"
+    "override in your fork for real org rates. Set `plan` in `.conductor.json` for allowance %._\n"
   );
 }
 
