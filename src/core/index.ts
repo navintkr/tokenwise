@@ -1,6 +1,6 @@
 import { classify, classifyAsync } from "./taskClassifier.js";
 import { validate, ValidateOptions } from "./promptValidator.js";
-import { route } from "./modelRouter.js";
+import { route, OptimizeFor } from "./modelRouter.js";
 import { estimateCost } from "./costEstimator.js";
 import { estimateTokens } from "./tokens.js";
 import { MODEL_CATALOG } from "../data/pricing.js";
@@ -17,6 +17,8 @@ export interface AnalyzeInput {
   availableModelIds?: string[];
   preferCheap?: boolean;
   completenessThreshold?: number;
+  /** Routing optimization preference. Defaults to "balanced". */
+  optimizeFor?: OptimizeFor;
 }
 
 export interface AnalyzeResult {
@@ -134,10 +136,13 @@ export async function analyzeAsync(input: AnalyzeAsyncInput): Promise<AnalyzeAsy
   );
   policyNotes.push(...gated.reasons);
 
+  const judgeTurns = (classification as any).judgeTurnsEstimate as number | undefined;
   const routing = route(classification.task, {
     inputTokens,
     availableModels: gated.allowedIds ?? input.availableModelIds,
     preferCheap: input.preferCheap ?? policy.preferCheap,
+    optimizeFor: input.optimizeFor ?? policy.optimizeFor ?? "balanced",
+    turnsEstimate: judgeTurns,
   });
 
   const cost = estimateCost(routing.model, {

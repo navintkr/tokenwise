@@ -104,6 +104,12 @@
           "default": false,
           "description": "Bias routing toward the cheapest model that clears the quality bar."
         },
+        "copilotConductor.optimizeFor": {
+          "type": "string",
+          "enum": ["tokens", "turns", "balanced"],
+          "default": "balanced",
+          "markdownDescription": "How to weigh cost axes in routing:\n- `tokens` — minimize $/M token price (classic); best for one-shot tasks.\n- `turns` — minimize premium-multiplier × turns; best when agent loops run many turns (e.g. code_large, agentic).\n- `balanced` — default compromise."
+        },
         "copilotConductor.exactTokenCounts": {
           "type": "boolean",
           "default": true,

@@ -29,6 +29,8 @@ export interface Policy {
   // Defaults (override settings.json)
   completenessThreshold?: number;
   preferCheap?: boolean;
+  /** "tokens" | "turns" | "balanced" — how to weigh cost axes in routing. */
+  optimizeFor?: "tokens" | "turns" | "balanced";
 
   // LLM judge
   llmJudge?: {
@@ -81,6 +83,7 @@ export function mergePolicy(a: Policy, b: Policy): Policy {
     audit: { ...(a.audit ?? {}), ...(b.audit ?? {}) },
     completenessThreshold: b.completenessThreshold ?? a.completenessThreshold,
     preferCheap: b.preferCheap ?? a.preferCheap,
+    optimizeFor: b.optimizeFor ?? a.optimizeFor,
     llmJudge: { ...(a.llmJudge ?? {}), ...(b.llmJudge ?? {}) },
     plan: { ...(a.plan ?? {}), ...(b.plan ?? {}) },
   };

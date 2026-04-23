@@ -1,11 +1,22 @@
 import { ModelSpec, RoutingResult, TaskType } from "./types.js";
 import { MODEL_CATALOG } from "../data/pricing.js";
 
+export type OptimizeFor = "tokens" | "turns" | "balanced";
+
 export interface RouteOptions {
   inputTokens: number;
   availableModels?: string[];   // if set, restrict to these ids
   preferCheap?: boolean;
   forceTier?: ModelSpec["tier"];
+  /** Expected agent turns; used when optimizing for turns. */
+  turnsEstimate?: number;
+  /**
+   * How to balance per-token cost vs per-turn premium-multiplier burn:
+   *  - "tokens":   minimize $/M (classic cost-per-token) — picks best-fit model cheaply
+   *  - "turns":    minimize premium requests × turns — agent-loop-friendly
+   *  - "balanced": weigh both (default)
+   */
+  optimizeFor?: OptimizeFor;
 }
 
 // Score each candidate model on (fit, cost, context). Higher = better.
@@ -16,7 +27,6 @@ export function route(task: TaskType, opts: RouteOptions): RoutingResult {
   ).filter((m) => m.contextWindow >= opts.inputTokens + 2_000);
 
   if (pool.length === 0) {
-    // fall back to best context window available
     const byCtx = [...MODEL_CATALOG].sort((a, b) => b.contextWindow - a.contextWindow);
     return {
       model: byCtx[0],
@@ -29,10 +39,13 @@ export function route(task: TaskType, opts: RouteOptions): RoutingResult {
   scored.sort((a, b) => b.s - a.s);
 
   const top = scored[0].m;
+  const mode = opts.optimizeFor ?? "balanced";
+  const turns = opts.turnsEstimate ?? 1;
   const rationale = [
     `task=${task}`,
     `picked ${top.id} (tier=${top.tier}, fit=${top.strengths.includes(task) ? "yes" : "fallback"})`,
     `input≈${opts.inputTokens} tok, ctx=${top.contextWindow}`,
+    `optimizeFor=${mode}${turns > 1 ? ` (turns≈${turns})` : ""}`,
     opts.preferCheap ? "cheap-bias enabled" : "balanced bias",
   ];
 
@@ -45,6 +58,8 @@ export function route(task: TaskType, opts: RouteOptions): RoutingResult {
 
 function scoreModel(m: ModelSpec, task: TaskType, opts: RouteOptions): number {
   let s = 0;
+  const mode = opts.optimizeFor ?? "balanced";
+  const turns = Math.max(1, opts.turnsEstimate ?? 1);
 
   // Fit
   if (m.strengths.includes(task)) s += 50;
@@ -58,12 +73,24 @@ function scoreModel(m: ModelSpec, task: TaskType, opts: RouteOptions): number {
   if (opts.forceTier && m.tier === opts.forceTier) s += 40;
   if (opts.forceTier && m.tier !== opts.forceTier) s -= 20;
 
-  // Cost bias
-  const costPenalty = (m.pricePerMInput + m.pricePerMOutput) * (opts.preferCheap ? 2 : 0.5);
-  s -= costPenalty;
+  // --- Cost axes ---
+  const tokenCost = m.pricePerMInput + m.pricePerMOutput;
 
-  // Premium multiplier penalty (burns Copilot quota)
-  s -= m.copilotPremiumMultiplier * (opts.preferCheap ? 6 : 2);
+  // Token-cost weight: how much we care about $/M tokens.
+  // Turn-cost weight: how much we care about premium-multiplier × turns.
+  let tokenWeight: number;
+  let turnWeight: number;
+  switch (mode) {
+    case "tokens":   tokenWeight = 2.0; turnWeight = 1.0; break;
+    case "turns":    tokenWeight = 0.3; turnWeight = 8.0; break;
+    case "balanced":
+    default:         tokenWeight = 0.8; turnWeight = 3.0; break;
+  }
+  // preferCheap amplifies both penalties.
+  if (opts.preferCheap) { tokenWeight *= 2; turnWeight *= 1.5; }
+
+  s -= tokenCost * tokenWeight;
+  s -= m.copilotPremiumMultiplier * turns * turnWeight;
 
   // Context headroom bonus
   if (m.contextWindow >= opts.inputTokens * 4) s += 5;

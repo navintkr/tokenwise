@@ -151,6 +151,7 @@ async function handler(
   const autoForward = cfg.get<boolean>("autoForward", true);
   const requireConfirmation = cfg.get<boolean>("requireConfirmation", true);
   const preferCheap = cfg.get<boolean>("preferCheap", false);
+  const optimizeFor = cfg.get<"tokens" | "turns" | "balanced">("optimizeFor", "balanced");
   const judgeEnabledCfg = cfg.get<boolean>("llmJudge.enabled", true);
   const judgeThreshold = cfg.get<number>("llmJudge.confidenceThreshold", 0.85);
 
@@ -187,6 +188,7 @@ async function handler(
     prompt: request.prompt,
     attachedText: attached,
     preferCheap,
+    optimizeFor,
     completenessThreshold: threshold,
     policy,
     judge,
