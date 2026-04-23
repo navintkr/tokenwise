@@ -4,16 +4,16 @@
 
 An open-source layer on top of **GitHub Copilot** that does three things every enterprise eventually asks for:
 
-1. **Prompt validation** — scores completeness 0–100 and asks targeted follow-ups if the prompt is too vague to finish in one shot.
-2. **Model routing** — picks the cheapest model that clears the quality bar for the task (trivial edit? reasoning? large refactor?).
-3. **Cost estimation** — shows approximate tokens, USD, and premium requests *before* the call.
+1. **Prompt validation** - scores completeness 0–100 and asks targeted follow-ups if the prompt is too vague to finish in one shot.
+2. **Model routing** - picks the cheapest model that clears the quality bar for the task (trivial edit? reasoning? large refactor?).
+3. **Cost estimation** - shows approximate tokens, USD, and premium requests *before* the call.
 
 It ships as:
 
-- **VS Code chat participant** (`@conductor`) — the primary UX, built on the `vscode.chat` + `vscode.lm` APIs.
-- **MCP server** (`copilot-conductor-mcp`) — the same core exposed over Model Context Protocol, so it also works with **Copilot CLI**, Copilot agent mode, Claude Desktop, Cursor, etc.
+- **VS Code chat participant** (`@conductor`) - the primary UX, built on the `vscode.chat` + `vscode.lm` APIs.
+- **MCP server** (`copilot-conductor-mcp`) - the same core exposed over Model Context Protocol, so it also works with **Copilot CLI**, Copilot agent mode, Claude Desktop, Cursor, etc.
 
-100% local. No network calls. We don't proxy your prompts anywhere — we call `vscode.lm` (which uses your existing Copilot entitlement) or hand a decision back to the MCP client.
+100% local. No network calls. We don't proxy your prompts anywhere - we call `vscode.lm` (which uses your existing Copilot entitlement) or hand a decision back to the MCP client.
 
 Read the full design: [docs/ANALYSIS.md](docs/ANALYSIS.md).
 
@@ -63,10 +63,10 @@ Estimate: ~210 in / ~84 out · ~$0.002 · 1× premium · model=gpt-4o
 
 Slash commands:
 
-- `@conductor /validate <prompt>` — just the completeness report.
-- `@conductor /route <prompt>` — pick a model (default; auto-forwards unless disabled).
-- `@conductor /cost <prompt>` — tokens + $.
-- `@conductor /explain <prompt>` — everything + the full candidate matrix.
+- `@conductor /validate <prompt>` - just the completeness report.
+- `@conductor /route <prompt>` - pick a model (default; auto-forwards unless disabled).
+- `@conductor /cost <prompt>` - tokens + $.
+- `@conductor /explain <prompt>` - everything + the full candidate matrix.
 
 ### Try the MCP server
 
@@ -106,7 +106,7 @@ Tools exposed:
 
 | Tool | What it does |
 |---|---|
-| `analyze_prompt` | Full pipeline — classify, validate, route, cost. |
+| `analyze_prompt` | Full pipeline - classify, validate, route, cost. |
 | `validate_prompt` | Completeness score + follow-up questions. |
 | `recommend_model` | Task classification + best model + alternatives. |
 | `estimate_cost` | Tokens + USD against an auto-routed or named model. |
@@ -168,17 +168,17 @@ most premium-request burn is caused by:
 - vague prompts that require multiple expensive rounds to resolve.
 
 Conductor attacks both. It's the cheapest lever an org can pull on Copilot
-spend — and it composes with, rather than replaces, whatever Copilot does next.
+spend - and it composes with, rather than replaces, whatever Copilot does next.
 
 ---
 
 ## Roadmap
 
-- [x] v0.1 — classifier, validator, router, cost, chat participant, MCP server.
-- [ ] v0.2 — `.conductor.yaml` policy + secret redaction + JSONL audit log.
-- [ ] v0.3 — LLM-judge fallback classifier + `tiktoken` for exact counts.
-- [ ] v0.4 — `vscode.lm.registerTool` so Copilot agent mode can call us directly.
-- [ ] v0.5 — Server-side GitHub Copilot Extension for centralized org routing.
+- [x] v0.1 - classifier, validator, router, cost, chat participant, MCP server.
+- [ ] v0.2 - `.conductor.yaml` policy + secret redaction + JSONL audit log.
+- [ ] v0.3 - LLM-judge fallback classifier + `tiktoken` for exact counts.
+- [ ] v0.4 - `vscode.lm.registerTool` so Copilot agent mode can call us directly.
+- [ ] v0.5 - Server-side GitHub Copilot Extension for centralized org routing.
 
 ---
 
