@@ -7,6 +7,8 @@
 
 > Pick the right model. Validate the prompt. See the real cost — tokens **and** turns. Before you spend a premium request.
 
+![Token Proctor demo](docs/token-proctor.gif)
+
 <p align="center">
   <video src="https://github.com/navintkr/token-proctor/raw/main/docs/token-proctor.mp4" controls muted width="720">
     Your browser doesn't render embedded video.
