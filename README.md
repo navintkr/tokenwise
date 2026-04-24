@@ -9,14 +9,7 @@
 
 ![Token Proctor demo](docs/token-proctor.gif)
 
-<p align="center">
-  <video src="https://github.com/navintkr/token-proctor/raw/main/docs/token-proctor.mp4" controls muted width="720">
-    Your browser doesn't render embedded video.
-    <a href="docs/token-proctor.mp4">Watch the demo (MP4)</a>.
-  </video>
-</p>
-
-▶️ **[Watch the 30-second demo](docs/token-proctor.mp4)** (MP4)
+▶️ **[Watch the 30-second demo (MP4)](docs/token-proctor.mp4)**
 
 An open-source layer on top of **GitHub Copilot** (and any token-priced LLM plan) that answers the three questions every team eventually asks:
 
@@ -35,14 +28,27 @@ Full design doc: [docs/ANALYSIS.md](docs/ANALYSIS.md).
 
 ---
 
+## Why it exists — one concrete example
+
+You ask Copilot in agent mode: *"Refactor this service to use async I/O everywhere."* On a 1× premium model (Sonnet 4, GPT-5), that single prompt runs **~20 turns** of read-file / apply-edit / run-tests, each one a billed premium request.
+
+| Model | Premium multiplier | Turns | Premium-equivalent requests |
+|---|---:|---:|---:|
+| Claude Sonnet 4 | 1.0× | 20 | **20** |
+| o4-mini         | 0.33× | 20 | **6.6** (**–67%**) |
+| gpt-4o-mini     | 0× | 20 | **0** (but quality drops on large refactors) |
+
+Token Proctor shows you this **before you hit send** and recommends the cheapest model that clears the quality bar for the task. On a 300-request monthly seat, three of those refactors on Sonnet is already 20% of the bucket.
+
+---
+
 ## What's new in v0.4
 
-- **Turn-aware cost projection.** The LLM judge now predicts **how many agent turns** a prompt will need (1 for Q&A, 10–30 for code_large/agentic), and the cost is `inputTokens × outputTokens × turns × model price`. No more hiding the cost of 20-turn agent loops behind a single-call estimate.
-- **`optimizeFor` knob** — `tokens` (default) minimizes $/M token price; `turns` minimizes `premium × turns` (great for agent loops that run many rounds); `balanced` splits the difference.
+- **Turn-aware cost projection.** The LLM judge predicts **how many agent turns** a prompt will need (1 for Q&A, 10–30 for code_large/agentic), and cost is `inputTokens × outputTokens × turns × model price`. No more hiding the cost of 20-turn agent loops behind a single-call estimate.
+- **`optimizeFor` knob** — `tokens` (default) minimizes $/M; `turns` minimizes `premium × turns` (right for agent loops); `balanced` splits the difference.
 - **Plan-aware allowance %.** Set `plan.monthlyTokenAllowance` in your policy and the summary shows **"this prompt ≈ 4.5% of your squad-plan monthly tokens"**.
-- **Exact tokenization on by default** via `js-tiktoken` (hard dep) using `o200k_base`.
-- **Copilot agent hand-off.** After confirmation, Token Proctor can launch a new Copilot Chat turn with the redacted prompt so Copilot's *own* agent tools (file edits, terminal) drive the work. Model-dropdown auto-switching is attempted but depends on the Copilot Chat build (VS Code does not expose a public API for this yet).
-- **Renamed** from Copilot Conductor → Token Proctor. Participant is now `@proctor`, policy file is `.token-proctor.json`, settings prefix is `tokenProctor.*`.
+- **Exact tokenization on by default** via `js-tiktoken` (`o200k_base`).
+- **Copilot agent hand-off.** After confirmation, Token Proctor launches a new Copilot Chat turn with the redacted prompt so Copilot's *own* agent tools (file edits, terminal) drive the work.
 
 ---
 
@@ -56,8 +62,16 @@ Full design doc: [docs/ANALYSIS.md](docs/ANALYSIS.md).
 
 ## Quick start
 
+**Install from the VS Code Marketplace** (fastest):
+
 ```bash
-git clone https://github.com/<your-org>/token-proctor.git
+code --install-extension token-proctor.token-proctor
+```
+
+Or clone and run from source:
+
+```bash
+git clone https://github.com/navintkr/token-proctor.git
 cd token-proctor
 npm install
 npm run compile

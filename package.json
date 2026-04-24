@@ -2,7 +2,7 @@
   "name": "token-proctor",
   "displayName": "Token Proctor",
   "description": "Prompt validation, model routing, and token/turn cost projection for GitHub Copilot and other token-priced LLM plans.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "icon": "media/icon.png",
   "publisher": "token-proctor",
   "license": "MIT",
