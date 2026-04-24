@@ -7,6 +7,15 @@
 
 > Pick the right model. Validate the prompt. See the real cost — tokens **and** turns. Before you spend a premium request.
 
+<p align="center">
+  <video src="https://github.com/navintkr/token-proctor/raw/main/docs/token-proctor.mp4" controls muted width="720">
+    Your browser doesn't render embedded video.
+    <a href="docs/token-proctor.mp4">Watch the demo (MP4)</a>.
+  </video>
+</p>
+
+▶️ **[Watch the 30-second demo](docs/token-proctor.mp4)** (MP4)
+
 An open-source layer on top of **GitHub Copilot** (and any token-priced LLM plan) that answers the three questions every team eventually asks:
 
 1. **Is this prompt ready to run?** — scores completeness 0–100 and suggests follow-ups when it's too vague.
